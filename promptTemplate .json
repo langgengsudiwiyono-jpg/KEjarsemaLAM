@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "model_hints": {
+    "gemini": "gemini-1.5-pro (responseMimeType: application/json, responseSchema below)",
+    "claude": "claude-sonnet-5-5 (force JSON via tool_use with input_schema = responseSchema)"
+  },
+  "systemPrompt": "You are Inkboard, a warm, precise tutor who teaches on a whiteboard. Reply ONLY with JSON matching the schema. Teach in short steps. Each step has: audioText (1-3 spoken sentences, natural speech, no markdown, in the learner's language), visualActions (what to draw while speaking) and duration (seconds, ~0.4s per spoken word). COORDINATES: x,y are local to each step; the app packs and places steps itself, so never reference other steps' positions. Keep every step COMPACT: about 560 wide x 240 tall, 3-6 actions, 20-30 units between elements, no empty space. Text y is its baseline: inside a box use x = box.x+16 and y = box.y + size + 10. Text size 26-44. Handwriting font: keep text under 6 words per line, use \\n for line breaks. Put a 'title' text at the top of the first step. Use 'box' to group ideas, 'arrow' to link them, 'highlight' (target = id of a text action) for the key phrase, 'curve' for graphs/diagrams. Every action id must be unique across the lesson. Modes: topic = intuitive explanation + example + recap; exam = checklist, common mistakes, one practice question; homework = solve step by step, never skip reasoning, end with a check. For a QUESTION interruption: you receive the board state and the active step; answer in 1-3 steps that reference existing ids when helpful, then set resumeHint to a short sentence returning to the lesson. Never invent facts; if a PDF/image is attached, ground the lesson in it.",
+  "userTemplate": {
+    "lesson": "{ \"task\":\"lesson\", \"mode\":\"{{mode}}\", \"language\":\"{{lang}}\", \"topic\":\"{{topic}}\", \"attachment\":\"{{file_ref_or_null}}\" }",
+    "question": "{ \"task\":\"question\", \"mode\":\"{{mode}}\", \"language\":\"{{lang}}\", \"question\":\"{{question}}\", \"activeStep\":{{active_step_json}}, \"board\":{{board_elements_json}} }"
+  },
+  "responseSchema": {
+    "type": "object",
+    "required": [
+      "title",
+      "steps"
+    ],
+    "properties": {
+      "title": {
+        "type": "string"
+      },
+      "resumeHint": {
+        "type": "string"
+      },
+      "steps": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "items": {
+          "type": "object",
+          "required": [
+            "id",
+            "audioText",
+            "duration",
+            "visualActions"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "audioText": {
+              "type": "string"
+            },
+            "duration": {
+              "type": "number",
+              "minimum": 2,
+              "maximum": 30
+            },
+            "visualActions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "type"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "text",
+                      "box",
+                      "arrow",
+                      "highlight",
+                      "curve"
+                    ],
+                    "type": "string"
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "w": {
+                    "type": "number"
+                  },
+                  "h": {
+                    "type": "number"
+                  },
+                  "x2": {
+                    "type": "number"
+                  },
+                  "y2": {
+                    "type": "number"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "size": {
+                    "type": "number"
+                  },
+                  "color": {
+                    "enum": [
+                      "ink",
+                      "blue",
+                      "red",
+                      "green"
+                    ],
+                    "type": "string"
+                  },
+                  "tone": {
+                    "enum": [
+                      "butter",
+                      "sage",
+                      "peach",
+                      "none"
+                    ],
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string",
+                    "description": "id of a text action (highlight only)"
+                  },
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "endpoints": {
+    "POST /api/lesson": {
+      "request": {
+        "mode": "topic|exam|homework",
+        "lang": "en-US",
+        "topic": "string",
+        "question": "string?",
+        "activeStep": "object?",
+        "board": "array?",
+        "file": {
+          "name": "string",
+          "mime": "string",
+          "base64": "string"
+        }
+      },
+      "response": "responseSchema"
+    },
+    "POST /api/tts": {
+      "request": {
+        "text": "string",
+        "voice_id": "string (ElevenLabs / zero-shot clone)",
+        "lang": "en-US",
+        "model_id": "eleven_multilingual_v2"
+      },
+      "response": "audio/mpeg binary"
+    }
+  }
+}
