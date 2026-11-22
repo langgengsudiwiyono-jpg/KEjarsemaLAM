@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inkboard – AI whiteboard tutor</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://unpkg.com/lucide@0.441.0/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#FBF4E4;--ink:#1F2A44;--butter:#FFE9A8;--sage:#CFE3D0;--peach:#F7D3C0;--card:#FFFBF1}
+  html,body{height:100%}
+  body{font-family:'Bricolage Grotesque',system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+  .hand{font-family:'Caveat',cursive}
+  .chip{border:1.5px solid rgba(31,42,68,.15);background:var(--card);transition:all .2s}
+  .chip[aria-pressed=true]{background:var(--butter);border-color:var(--ink);box-shadow:0 3px 0 var(--ink)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:999px;transition:transform .15s,background .2s}
+  .btn:hover{transform:translateY(-1px)} .btn:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .speaking .mouth{animation:talk .28s infinite alternate}
+  @keyframes talk{to{transform:scaleY(2.2)}}
+  .mouth{transform-origin:50% 50%}
+  @media (prefers-reduced-motion:reduce){.speaking .mouth{animation:none}.btn{transition:none}}
+</style>
+</head>
+<body class="flex flex-col md:flex-row gap-3 p-3">
+
+<aside class="md:w-64 shrink-0 flex md:flex-col items-center md:items-stretch gap-3">
+  <div id="avatar" class="flex md:flex-col items-center gap-3">
+    <svg viewBox="0 0 100 110" class="w-20 md:w-36 shrink-0" aria-label="Tutor avatar">
+      <path d="M18 108c4-26 20-30 32-30s28 4 32 30z" fill="#CFE3D0"/>
+      <path d="M20 52c-4-34 14-44 30-44s34 10 30 44c-2 22-10 30-30 30S22 74 20 52z" fill="#1F2A44"/>
+      <ellipse cx="50" cy="54" rx="24" ry="28" fill="#C48A62"/>
+      <circle cx="41" cy="52" r="2.6" fill="#1F2A44"/><circle cx="59" cy="52" r="2.6" fill="#1F2A44"/>
+      <rect class="mouth" x="44" y="66" width="12" height="3" rx="1.5" fill="#8a3b3b"/>
+      <path d="M70 14l16-8 3 6-16 8z" fill="#FFE9A8" stroke="#1F2A44" stroke-width="2"/>
+    </svg>
+    <div id="bubble" class="rounded-3xl px-4 py-3 text-[15px] leading-snug font-semibold min-h-[4rem] flex-1" style="background:#F3E9D0" aria-live="polite">What do you want to learn today?</div>
+  </div>
+  <div class="flex md:justify-center gap-2" role="group" aria-label="Voice controls">
+    <button id="btnPlay" class="btn chip w-11 h-11" title="Play / pause" aria-label="Play or pause"><i data-lucide="play"></i></button>
+    <button id="btnPrev" class="btn chip w-11 h-11" title="Previous step" aria-label="Previous step"><i data-lucide="skip-back"></i></button>
+    <button id="btnNext" class="btn chip w-11 h-11" title="Next step" aria-label="Next step"><i data-lucide="skip-forward"></i></button>
+    <button id="btnVoice" class="btn chip w-11 h-11" aria-pressed="false" title="Use custom cloned voice" aria-label="Custom voice"><i data-lucide="audio-lines"></i></button>
+  </div>
+  <p id="stepInfo" class="hidden md:block text-center text-sm opacity-60"></p>
+</aside>
+
+<main class="flex-1 min-w-0 flex flex-col gap-3 h-[calc(100vh-1.5rem)]">
+  <section class="relative flex-1 min-h-0 rounded-3xl overflow-hidden border" style="border-color:rgba(31,42,68,.12);background:var(--card)">
+    <canvas id="board" class="w-full h-full touch-none cursor-grab" aria-label="Whiteboard"></canvas>
+    <div class="absolute top-3 right-3 flex gap-2">
+      <button id="btnFollow" class="btn chip px-3 h-10 text-sm font-semibold" aria-pressed="true"><i data-lucide="locate-fixed" class="w-4 h-4"></i>Follow me</button>
+      <button id="zOut" class="btn chip w-10 h-10" aria-label="Zoom out"><i data-lucide="minus"></i></button>
+      <span id="zVal" class="chip rounded-full px-3 h-10 flex items-center text-sm font-semibold">80%</span>
+      <button id="zIn" class="btn chip w-10 h-10" aria-label="Zoom in"><i data-lucide="plus"></i></button>
+    </div>
+  </section>
+
+  <section class="rounded-3xl p-3 border" style="background:var(--card);border-color:rgba(31,42,68,.12)">
+    <div class="flex flex-wrap gap-2 mb-2" id="modes" role="group" aria-label="Lesson mode">
+      <button class="btn chip px-4 h-9 text-sm font-semibold" data-mode="topic" aria-pressed="true"><i data-lucide="book-open" class="w-4 h-4"></i>Topic</button>
+      <button class="btn chip px-4 h-9 text-sm font-semibold" data-mode="exam" aria-pressed="false"><i data-lucide="zap" class="w-4 h-4"></i>Exam prep</button>
+      <button class="btn chip px-4 h-9 text-sm font-semibold" data-mode="homework" aria-pressed="false"><i data-lucide="pencil" class="w-4 h-4"></i>Homework</button>
+      <select id="lang" class="ml-auto chip rounded-full px-3 h-9 text-sm font-semibold" aria-label="Language"><option value="en-US">English</option><option value="id-ID">Bahasa Indonesia</option></select>
+    </div>
+    <div class="flex items-end gap-2">
+      <textarea id="input" rows="2" class="flex-1 resize-none rounded-2xl p-3 text-[15px] bg-transparent border" style="border-color:rgba(31,42,68,.15)" placeholder="Teach me about photosynthesis… or ask a question while a lesson plays"></textarea>
+      <input id="file" type="file" accept="application/pdf,image/*" class="hidden">
+      <button id="btnFile" class="btn chip w-11 h-11" title="Add PDF or image" aria-label="Add file"><i data-lucide="paperclip"></i></button>
+      <button id="btnMic" class="btn chip w-11 h-11" title="Speak" aria-label="Microphone" aria-pressed="false"><i data-lucide="mic"></i></button>
+      <button id="btnSend" class="btn h-11 px-6 font-extrabold" style="background:var(--ink);color:var(--butter)">Start</button>
+    </div>
+    <p id="fileName" class="text-xs opacity-60 mt-1 hidden"></p>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
