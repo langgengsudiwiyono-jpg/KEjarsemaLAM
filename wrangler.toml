@@ -1,0 +1,9 @@
+name = "inkboard-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[vars]
+PROVIDER = "claude"                          # or "gemini"
+ALLOWED_ORIGIN = "https://USERNAME.github.io" # your GitHub Pages origin, no path
+# CLAUDE_MODEL = "claude-sonnet-5-5"
+# GEMINI_MODEL = "gemini-2.5-pro"
