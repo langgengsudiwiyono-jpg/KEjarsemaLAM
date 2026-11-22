@@ -4,7 +4,7 @@ const $ = s => document.querySelector(s);
 const INK = { ink: '#1F2A44', blue: '#2F6DB5', red: '#C0392B', green: '#2E7D5B' };
 const TONE = { butter: '#FFE9A8', sage: '#CFE3D0', peach: '#F7D3C0', none: 'transparent' };
 const S = { steps: [], i: -1, els: [], playing: false, mode: 'topic', cam: { x: 40, y: 30, z: .8 }, follow: true,
-  file: null, audio: null, token: 0, oy: 0, customVoice: false, started: false };
+  file: null, audio: null, token: 0, oy: 0, stepY: 0, dpr: 1, customVoice: false, started: false };
 
 /* ---------- Mock lesson (offline demo) ---------- */
 const DEMO = { steps: [
@@ -28,8 +28,12 @@ const mockAnswer = q => ({ steps: [{ id: 'q' + Date.now(), duration: 6,
 
 /* ---------- Canvas engine ---------- */
 const cv = $('#board'), g = cv.getContext('2d');
-function resize() { const d = devicePixelRatio || 1, r = cv.getBoundingClientRect(); cv.width = r.width * d; cv.height = r.height * d; }
+function resize() {
+  const box = cv.parentElement, d = S.dpr = Math.max(1, devicePixelRatio || 1), w = box.clientWidth, h = box.clientHeight;
+  if (!w || !h) return; cv.width = Math.round(w * d); cv.height = Math.round(h * d);
+}
 addEventListener('resize', resize);
+new ResizeObserver(resize).observe(cv.parentElement);
 const prog = e => Math.max(0, Math.min(1, (performance.now() - e.start) / e.dur));
 const ease = p => 1 - Math.pow(1 - p, 3);
 
@@ -71,11 +75,12 @@ function paint(e) {
   }
 }
 function frame() {
-  const d = devicePixelRatio || 1, c = S.cam, w = cv.width / d, h = cv.height / d;
+  const d = S.dpr, c = S.cam, w = cv.width / d, h = cv.height / d;
   if (S.follow && S.els.length) { c.x += (40 - c.x) * .06; c.y += ((h * .08 - S.stepY * c.z) - c.y) * .06; }
-  g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); // clear in raw pixels, before any scaling
+  g.setTransform(d, 0, 0, d, 0, 0);
   const gs = 36 * c.z; g.fillStyle = 'rgba(31,42,68,.1)';
-  for (let x = ((c.x % gs) + gs) % gs; x < w; x += gs) for (let y = ((c.y % gs) + gs) % gs; y < h; y += gs) g.fillRect(x, y, 2, 2);
+  if (gs > 14) for (let x = ((c.x % gs) + gs) % gs; x < w; x += gs) for (let y = ((c.y % gs) + gs) % gs; y < h; y += gs) g.fillRect(x, y, 2, 2);
   g.setTransform(d * c.z, 0, 0, d * c.z, d * c.x, d * c.y);
   for (const t of ['highlight', 'box', 'curve', 'text', 'arrow']) S.els.forEach(e => e.type === t && paint(e));
   $('#zVal').textContent = Math.round(c.z * 100) + '%';
@@ -121,8 +126,8 @@ async function speak(step, tk) {
 async function run(i, replay = false) {
   const tk = ++S.token, st = S.steps[i]; if (!st) return;
   S.i = i; S.playing = true; setPlayIcon(); stopAudio();
-  if (!st.shown) { st.shown = true; S.stepY = S.oy; addActions(st.visualActions || []); }
-  else S.stepY = S.stepY ?? 0;
+  if (!st.shown) { st.shown = true; st.y0 = S.oy; addActions(st.visualActions || []); }
+  S.stepY = st.y0;
   say(st.audioText); $('#stepInfo').textContent = `Step ${i + 1} of ${S.steps.length}`;
   await speak(st, tk);
   if (tk !== S.token || !S.playing) return;
